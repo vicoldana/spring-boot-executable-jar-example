@@ -11,12 +11,14 @@ pipeline {
     buildDiscarder(logRotator(numToKeepStr: '20'))
   }
 
+  environment {
+    K8S_NAMESPACE = "default"   // namespace-ul unde deployăm
+  }
+
   stages {
 
     stage('Checkout') {
-      steps {
-        checkout scm
-      }
+      steps { checkout scm }
     }
 
     stage('Build & Test') {
@@ -31,9 +33,7 @@ pipeline {
         '''
       }
       post {
-        always {
-          junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
-        }
+        always { junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml' }
       }
     }
 
@@ -57,35 +57,58 @@ pipeline {
       }
     }
 
-    stage('Deploy to Kubernetes (Rancher Desktop)') {
+    stage('Deploy to Kubernetes (in-cluster)') {
       steps {
-        withCredentials([file(credentialsId: 'kubeconfig-rancher', variable: 'KUBECONFIG')]) {
-          echo '🚀 Deploying app to Rancher Desktop cluster...'
-          sh '''
-            # 1️⃣ Găsim doar fișierul principal .jar (nu sources sau javadoc)
-            MAIN_JAR=$(ls target/*.jar | grep -v 'sources\\|javadoc' | head -n 1)
-            echo "📄 JAR detectat: $MAIN_JAR"
+        echo '🚀 Deploy în cluster folosind in-cluster config (fără kubeconfig extern)...'
+        sh '''
+          set -e
 
-            # 2️⃣ Copiem fișierul în folderul de deploy
-            mkdir -p /tmp/deploy
-            cp "$MAIN_JAR" /tmp/deploy/app.jar
+          # 1️⃣ Alegem fișierul principal .jar
+          MAIN_JAR=$(ls target/*.jar | grep -v 'sources\\|javadoc' | head -n 1)
+          echo "📄 JAR detectat: $MAIN_JAR"
 
-            # 3️⃣ Descărcăm kubectl local (nu în /usr/local/bin)
-            echo "📦 Instalăm kubectl v1.29.0 (local în /tmp)..."
-            curl -LO "https://dl.k8s.io/release/v1.29.0/bin/linux/amd64/kubectl"
-            chmod +x kubectl
-            mv kubectl /tmp/kubectl
-            export PATH=$PATH:/tmp
+          # 2️⃣ Instalăm kubectl v1.29.0 local (în /tmp)
+          echo "📦 Instalăm kubectl v1.29.0 (local în /tmp)..."
+          curl -LO "https://dl.k8s.io/release/v1.29.0/bin/linux/amd64/kubectl"
+          chmod +x kubectl && mv kubectl /tmp/kubectl
 
-            # 4️⃣ Setăm kubeconfig din credential
-            export KUBECONFIG=$KUBECONFIG
+          # 3️⃣ Creăm manifestul YAML (containerul așteaptă JAR-ul)
+          cat > deploy.yaml <<'YAML'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-app
+  labels:
+    app: my-app
+spec:
+  containers:
+    - name: my-app
+      image: eclipse-temurin:17-jdk-alpine
+      command: ["sh","-c","while [ ! -f /app/app.jar ]; do echo '⌛ waiting for /app/app.jar'; sleep 2; done; exec java -jar /app/app.jar"]
+      volumeMounts:
+        - name: app
+          mountPath: /app
+  volumes:
+    - name: app
+      emptyDir: {}
+YAML
 
-            # 5️⃣ Deploy în Rancher Desktop
-            echo "📤 Aplicăm fișierul deploy.yaml..."
-            /tmp/kubectl delete pod my-app --ignore-not-found=true
-            /tmp/kubectl apply -f deploy.yaml
-          '''
-        }
+          # 4️⃣ Aplicăm manifestul
+          echo "📤 Aplicăm deploy.yaml..."
+          /tmp/kubectl -n "${K8S_NAMESPACE}" delete pod my-app --ignore-not-found=true
+          /tmp/kubectl -n "${K8S_NAMESPACE}" apply -f deploy.yaml
+
+          # 5️⃣ Așteptăm crearea podului
+          echo "⏳ Așteptăm ca podul să fie creat..."
+          /tmp/kubectl -n "${K8S_NAMESPACE}" wait --for=condition=PodScheduled pod/my-app --timeout=60s || true
+          /tmp/kubectl -n "${K8S_NAMESPACE}" get pod my-app -o wide || true
+
+          # 6️⃣ Copiem fișierul JAR în pod (unde îl așteaptă containerul)
+          echo "📥 Copiem JAR în pod..."
+          /tmp/kubectl -n "${K8S_NAMESPACE}" cp "$MAIN_JAR" my-app:/app/app.jar
+
+          echo "✅ JAR copiat. Containerul va porni automat aplicația Java!"
+        '''
       }
     }
   }
@@ -93,6 +116,9 @@ pipeline {
   post {
     success {
       echo '✅ Build + Deploy reușit! Aplicația rulează în Rancher Desktop.'
+      echo 'ℹ️ Jenkins e pe 8080; pentru aplicație folosește port-forward:'
+      echo '   kubectl -n default port-forward pod/my-app 8081:8080'
+      echo '👉 apoi deschide: http://localhost:8081'
     }
     failure {
       echo '❌ Build sau Deploy eșuat. Verifică logurile Jenkins.'
