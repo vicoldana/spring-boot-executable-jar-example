@@ -71,8 +71,8 @@ pipeline {
             cp "$MAIN_JAR" /tmp/deploy/app.jar
 
             # 3️⃣ Descărcăm kubectl local (nu în /usr/local/bin)
-            echo "📦 Instalăm kubectl (local în /tmp)..."
-            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+            echo "📦 Instalăm kubectl v1.29.0 (local în /tmp)..."
+            curl -LO "https://dl.k8s.io/release/v1.29.0/bin/linux/amd64/kubectl"
             chmod +x kubectl
             mv kubectl /tmp/kubectl
             export PATH=$PATH:/tmp
