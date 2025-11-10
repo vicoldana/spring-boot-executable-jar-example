@@ -12,8 +12,9 @@ pipeline {
   }
 
   environment {
-    K8S_NAMESPACE = "default"   // namespace-ul unde deployăm
-  }
+  K8S_NAMESPACE = "jenkins"
+}
+
 
   stages {
 
