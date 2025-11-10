@@ -1,28 +1,11 @@
 pipeline {
-  agent {
-    kubernetes {
-      label "maven-agent"
-      defaultContainer 'maven'
-      yaml """
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-    - name: maven
-      image: maven:3.9.9-eclipse-temurin-17
-      command: ['cat']
-      tty: true
-      volumeMounts:
-        - name: maven-cache
-          mountPath: /root/.m2
-  volumes:
-    - name: maven-cache
-      emptyDir: {}
-"""
-    }
+  agent any
+
+  tools {
+    jdk 'jdk17'
+    maven 'Maven_3.9.9'
   }
 
-  // 🔧 Opțiuni pipeline – curățate și corecte
   options {
     ansiColor('xterm')
     buildDiscarder(logRotator(numToKeepStr: '20'))
@@ -32,22 +15,20 @@ spec:
 
     stage('Checkout') {
       steps {
-        checkout(scm)
+        checkout scm
       }
     }
 
     stage('Build & Test') {
       steps {
-        container('maven') {
-          echo '🏗️ Compilăm și rulăm testele...'
-          sh '''
-            if [ -x ./mvnw ]; then
-              ./mvnw -B -e -DskipTests=false clean verify
-            else
-              mvn -B -e -DskipTests=false clean verify
-            fi
-          '''
-        }
+        echo '🏗️ Compilăm și rulăm testele...'
+        sh '''
+          if [ -x ./mvnw ]; then
+            ./mvnw -B -e -DskipTests=false clean verify
+          else
+            mvn -B -e -DskipTests=false clean verify
+          fi
+        '''
       }
       post {
         always {
@@ -58,16 +39,14 @@ spec:
 
     stage('Package') {
       steps {
-        container('maven') {
-          echo '📦 Creăm fișierul .jar...'
-          sh '''
-            if [ -x ./mvnw ]; then
-              ./mvnw -B -e package
-            else
-              mvn -B -e package
-            fi
-          '''
-        }
+        echo '📦 Creăm fișierul .jar...'
+        sh '''
+          if [ -x ./mvnw ]; then
+            ./mvnw -B -e package
+          else
+            mvn -B -e package
+          fi
+        '''
       }
     }
 
@@ -78,28 +57,27 @@ spec:
       }
     }
 
-    stage('Deploy to Kubernetes') {
+    stage('Deploy to Kubernetes (Rancher Desktop)') {
       steps {
-        container('maven') {
-          echo '🚀 Deploy în Rancher Desktop...'
+        // folosim credentialul creat în Jenkins cu fișierul C:\Users\davicol\.kube\config
+        withCredentials([file(credentialsId: 'kubeconfig-rancher', variable: 'KUBECONFIG')]) {
+          echo '🚀 Deploying app to Rancher Desktop cluster...'
           sh '''
-            # 1️⃣ Copiem artefactul în folderul de deploy
+            # 1️⃣ Copiem fișierul .jar într-un folder accesibil pentru container
             mkdir -p /tmp/deploy
             cp target/*.jar /tmp/deploy/app.jar || true
 
-            # 2️⃣ Instalăm kubectl dacă nu e deja
+            # 2️⃣ Instalăm kubectl dacă nu există
             if ! command -v kubectl &> /dev/null; then
               apt-get update && apt-get install -y curl
               curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
               chmod +x kubectl && mv kubectl /usr/local/bin/
             fi
 
-            # 3️⃣ Ne conectăm la clusterul Rancher Desktop (kubernetes.default.svc funcționează din interiorul clusterului)
-            kubectl config set-cluster rancher --server=https://kubernetes.default.svc --insecure-skip-tls-verify=true
-            kubectl config set-context rancher --cluster=rancher
-            kubectl config use-context rancher
+            # 3️⃣ Folosim kubeconfig-ul local (din credential)
+            export KUBECONFIG=$KUBECONFIG
 
-            # 4️⃣ Ștergem vechiul pod și lansăm aplicația din deploy.yaml
+            # 4️⃣ Aplicăm fișierul YAML care rulează aplicația
             kubectl delete pod my-app --ignore-not-found=true
             kubectl apply -f deploy.yaml
           '''
@@ -110,10 +88,10 @@ spec:
 
   post {
     success {
-      echo '✅ Build + Deploy OK. Aplicația rulează în Rancher Desktop!'
+      echo '✅ Build + Deploy reușit! Aplicația rulează în Rancher Desktop.'
     }
     failure {
-      echo '❌ Build sau Deploy a eșuat. Verifică logurile Jenkins.'
+      echo '❌ Build sau Deploy eșuat. Verifică logurile Jenkins.'
     }
   }
 }
