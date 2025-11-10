@@ -8,12 +8,11 @@ spec:
   containers:
     - name: my-app
       image: eclipse-temurin:17-jdk-alpine
-      command: ["java", "-jar", "/app/app.jar"]
+      # Așteaptă până apare /app/app.jar, apoi pornește aplicația
+      command: ["sh","-c","while [ ! -f /app/app.jar ]; do echo '⌛ waiting for /app/app.jar'; sleep 2; done; exec java -jar /app/app.jar"]
       volumeMounts:
-        - name: app-volume
+        - name: app
           mountPath: /app
   volumes:
-    - name: app-volume
-      hostPath:
-        path: /tmp/deploy
-        type: DirectoryOrCreate
+    - name: app
+      emptyDir: {}
