@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: spring-boot-app
+  name: my-app
   labels:
-    app: spring-boot-app
+    app: my-app
 spec:
   containers:
-    - name: spring-boot-app
+    - name: my-app
       image: eclipse-temurin:17-jdk-alpine
       command: ["java", "-jar", "/app/app.jar"]
       volumeMounts:
