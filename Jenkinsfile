@@ -32,7 +32,6 @@ spec:
     stage('Build & Test') {
       steps {
         container('maven') {
-          // folosește wrapper-ul proiectului dacă există, altfel mvn
           sh '''
             if [ -x ./mvnw ]; then
               ./mvnw -B -e -DskipTests=false clean verify
@@ -62,10 +61,36 @@ spec:
         archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
       }
     }
+
+    // 🆕 NOUL PAS — DEPLOY
+    stage('Deploy to Kubernetes') {
+      steps {
+        container('maven') {
+          sh '''
+            echo "🚀 Deploying app into Kubernetes (Rancher Desktop)..."
+            mkdir -p /tmp/deploy
+            cp target/*.jar /tmp/deploy/app.jar || true
+
+            if ! command -v kubectl &> /dev/null; then
+              apt-get update && apt-get install -y curl
+              curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+              chmod +x kubectl && mv kubectl /usr/local/bin/
+            fi
+
+            kubectl config set-cluster rancher --server=https://kubernetes.default.svc --insecure-skip-tls-verify=true
+            kubectl config set-context rancher --cluster=rancher
+            kubectl config use-context rancher
+
+            kubectl delete pod my-app --ignore-not-found=true
+            kubectl apply -f deploy.yaml
+          '''
+        }
+      }
+    }
   }
 
   post {
-    success { echo '✅ Build OK. Găsești JAR-ul în Artifacts.' }
-    failure { echo '❌ Build FAILED. Verifică logurile etapelor.' }
+    success { echo '✅ Build + Deploy OK. Aplicația e pornită în Rancher Desktop.' }
+    failure { echo '❌ Eroare. Verifică logurile Jenkins.' }
   }
 }
