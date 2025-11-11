@@ -12,9 +12,8 @@ pipeline {
   }
 
   environment {
-  K8S_NAMESPACE = "jenkins"
-}
-
+    K8S_NAMESPACE = "jenkins"
+  }
 
   stages {
 
@@ -27,9 +26,9 @@ pipeline {
         echo '🏗️ Compilăm și rulăm testele...'
         sh '''
           if [ -x ./mvnw ]; then
-            ./mvnw -B -e -DskipTests=false clean verify
+            ./mvnw -B -e -Dmaven.javadoc.skip=true -DskipTests=false clean verify
           else
-            mvn -B -e -DskipTests=false clean verify
+            mvn -B -e -Dmaven.javadoc.skip=true -DskipTests=false clean verify
           fi
         '''
       }
@@ -43,9 +42,9 @@ pipeline {
         echo '📦 Creăm fișierul .jar...'
         sh '''
           if [ -x ./mvnw ]; then
-            ./mvnw -B -e package
+            ./mvnw -B -e -Dmaven.javadoc.skip=true -DskipTests=false clean package
           else
-            mvn -B -e package
+            mvn -B -e -Dmaven.javadoc.skip=true -DskipTests=false clean package
           fi
         '''
       }
@@ -108,7 +107,7 @@ YAML
           echo "📥 Copiem JAR în pod..."
           /tmp/kubectl -n "${K8S_NAMESPACE}" cp "$MAIN_JAR" my-app:/app/app.jar
 
-          echo "✅ JAR copiat. Containerul va porni automat aplicația Java!"
+          echo "✅ JAR copiat. Containerul va porni automat aplicația Spring Boot!"
         '''
       }
     }
@@ -117,9 +116,10 @@ YAML
   post {
     success {
       echo '✅ Build + Deploy reușit! Aplicația rulează în Rancher Desktop.'
-      echo 'ℹ️ Jenkins e pe 8080; pentru aplicație folosește port-forward:'
-      echo '   kubectl -n default port-forward pod/my-app 8081:8080'
-      echo '👉 apoi deschide: http://localhost:8081'
+      echo 'ℹ️ Jenkins rulează în namespace-ul ${K8S_NAMESPACE}.'
+      echo '👉 Pentru a accesa aplicația local, folosește:'
+      echo '   kubectl -n ${K8S_NAMESPACE} port-forward pod/my-app 8081:8080'
+      echo 'Apoi deschide: http://localhost:8081'
     }
     failure {
       echo '❌ Build sau Deploy eșuat. Verifică logurile Jenkins.'
