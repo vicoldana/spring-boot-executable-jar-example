@@ -98,13 +98,14 @@ YAML
           /tmp/kubectl -n "${K8S_NAMESPACE}" delete pod my-app --ignore-not-found=true
           /tmp/kubectl -n "${K8S_NAMESPACE}" apply -f deploy.yaml
 
-          # 5️⃣ Așteptăm crearea podului
-          echo "⏳ Așteptăm ca podul să fie creat..."
-          /tmp/kubectl -n "${K8S_NAMESPACE}" wait --for=condition=PodScheduled pod/my-app --timeout=60s || true
+          # 5️⃣ Așteptăm ca podul să fie complet Ready
+          echo "⏳ Așteptăm ca podul să fie complet pornit..."
+          /tmp/kubectl -n "${K8S_NAMESPACE}" wait --for=condition=Ready pod/my-app --timeout=120s || true
+          sleep 5
           /tmp/kubectl -n "${K8S_NAMESPACE}" get pod my-app -o wide || true
 
           # 6️⃣ Copiem fișierul JAR în pod (unde îl așteaptă containerul)
-          echo "📥 Copiem JAR în pod..."
+          echo "📥 Copiem JAR în pod (după ce podul e Ready)..."
           /tmp/kubectl -n "${K8S_NAMESPACE}" cp "$MAIN_JAR" my-app:/app/app.jar
 
           echo "✅ JAR copiat. Containerul va porni automat aplicația Spring Boot!"
@@ -117,9 +118,9 @@ YAML
     success {
       echo '✅ Build + Deploy reușit! Aplicația rulează în Rancher Desktop.'
       echo 'ℹ️ Jenkins rulează în namespace-ul ${K8S_NAMESPACE}.'
-      echo '👉 Pentru a accesa aplicația local, folosește:'
+      echo '👉 Pentru a accesa aplicația local:'
       echo '   kubectl -n ${K8S_NAMESPACE} port-forward pod/my-app 8081:8080'
-      echo 'Apoi deschide: http://localhost:8081'
+      echo '🔗 Apoi deschide în browser: http://localhost:8081'
     }
     failure {
       echo '❌ Build sau Deploy eșuat. Verifică logurile Jenkins.'
