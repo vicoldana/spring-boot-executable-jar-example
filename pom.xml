@@ -1,25 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" 
+<project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
          http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
     <modelVersion>4.0.0</modelVersion>
 
-    <!-- ********************************************** -->
-    <!-- *************** PROJECT INFO ***************** -->
-    <!-- ********************************************** -->
-
-    <groupId>com.bernardomg.example</groupId>
+    <groupId>com.vicoldana</groupId>
     <artifactId>spring-boot-executable-jar-example</artifactId>
-    <version>1.0.3</version>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
     <name>Spring Boot Web Example</name>
-    <description>Spring Boot web example running in Jenkins & Kubernetes</description>
-
-    <!-- ********************************************** -->
-    <!-- **************** PROPERTIES ****************** -->
-    <!-- ********************************************** -->
+    <description>Simple Spring Boot web app ready for Jenkins and Kubernetes</description>
 
     <properties>
         <java.version>17</java.version>
@@ -28,18 +20,14 @@
         <maven.compiler.target>17</maven.compiler.target>
     </properties>
 
-    <!-- ********************************************** -->
-    <!-- **************** DEPENDENCIES **************** -->
-    <!-- ********************************************** -->
-
     <dependencies>
-        <!-- Web (Tomcat + REST Controller) -->
+        <!-- Spring Boot Web (Tomcat + REST Controller) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <!-- Logging -->
+        <!-- Logare (SLF4J + Log4j) -->
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-slf4j2-impl</artifactId>
@@ -49,7 +37,7 @@
             <artifactId>log4j-core</artifactId>
         </dependency>
 
-        <!-- Test -->
+        <!-- Teste -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -57,15 +45,11 @@
         </dependency>
     </dependencies>
 
-    <!-- ********************************************** -->
-    <!-- ******************** BUILD ******************* -->
-    <!-- ********************************************** -->
-
     <build>
         <defaultGoal>clean package</defaultGoal>
 
         <plugins>
-            <!-- Spring Boot plugin: creează jar executabil -->
+            <!-- Plugin principal Spring Boot -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -79,7 +63,7 @@
                 </executions>
             </plugin>
 
-            <!-- Compiler -->
+            <!-- Compiler Java 17 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -90,7 +74,7 @@
                 </configuration>
             </plugin>
 
-            <!-- 🔧 Dezactivează complet Javadoc -->
+            <!-- 🔧 Dezactivăm complet Javadoc (ca să nu mai pice buildul) -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
